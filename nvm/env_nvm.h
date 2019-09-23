@@ -1,24 +1,24 @@
 #ifndef STORAGE_ROCKSDB_ENVNVM_H_
 #define STORAGE_ROCKSDB_ENVNVM_H_
 
-#include <iostream>
-#include <sstream>
-#include <fstream>
-#include <iomanip>
-#include <deque>
-#include <map>
-#include "rocksdb/env.h"
 #include "include/rocksdb/threadpool.h"
 #include "monitoring/thread_status_updater.h"
-#include "util/thread_local.h"
-#include "util/mutexlock.h"
 #include "port/port.h"
+#include "rocksdb/env.h"
+#include "util/mutexlock.h"
+#include "util/thread_local.h"
+#include <deque>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <liblightnvm.h>
+#include <map>
+#include <sstream>
 
-//#define NVM_DBG_ENABLED 1
+#define NVM_DBG_ENABLED 1
 #ifdef NVM_DBG_ENABLED
 
-inline std::string methodName(const std::string& prettyFunction) {
+inline std::string methodName(const std::string &prettyFunction) {
   size_t begin = 0, end = 0;
 
   std::string prefix("rocksdb::");
@@ -30,25 +30,26 @@ inline std::string methodName(const std::string& prettyFunction) {
   }
 
   if ((begin < end) && (end < prettyFunction.length()))
-    return prettyFunction.substr(begin, end-begin);
+    return prettyFunction.substr(begin, end - begin);
 
   return "";
 }
 
 #define __METHOD_NAME__ methodName(__PRETTY_FUNCTION__)
-#define __FNAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#define NVM_DBG(obj, x) do {                                            \
-  std::stringstream ss; ss                                              \
-  << std::setfill('-') << std::setw(15) << std::left << __FNAME__       \
-  << std::setfill('-') << std::setw(5)  << std::right << __LINE__       \
-  << std::setfill(' ') << std::setw(20)  << std::right << obj->txt()    \
-  << std::setfill(' ') << " "                                           \
-  << std::setfill(' ') << std::setw(34) << std::left << __METHOD_NAME__ \
-  << std::setfill(' ') << " "                                           \
-  << std::setfill(' ') << x                                             \
-  << std::endl;                                                         \
-  fprintf(stdout, "%s", ss.str().c_str()); fflush(stdout);              \
-} while (0);
+#define __FNAME__                                                              \
+  (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#define NVM_DBG(obj, x)                                                        \
+  do {                                                                         \
+    std::stringstream ss;                                                      \
+    ss << std::setfill('-') << std::setw(15) << std::left << __FNAME__         \
+       << std::setfill('-') << std::setw(5) << std::right << __LINE__          \
+       << std::setfill(' ') << std::setw(20) << std::right << obj->txt()       \
+       << std::setfill(' ') << " " << std::setfill(' ') << std::setw(34)       \
+       << std::left << __METHOD_NAME__ << std::setfill(' ') << " "             \
+       << std::setfill(' ') << x << std::endl;                                 \
+    fprintf(stdout, "%s", ss.str().c_str());                                   \
+    fflush(stdout);                                                            \
+  } while (0);
 #else
 #define NVM_DBG(obj, x)
 #endif
@@ -62,31 +63,30 @@ static std::string kNvmMetaExt = ".meta";
 // file.
 class FPathInfo {
 public:
-  FPathInfo(const std::string& fpath) {
+  FPathInfo(const std::string &fpath) {
     this->fpath(fpath);
 
-    NVM_DBG(this, "");
+    // NVM_DBG(this, "");
   }
 
-  FPathInfo(const FPathInfo& info) {
+  FPathInfo(const FPathInfo &info) {
     this->fpath(info.fpath());
 
-    NVM_DBG(this, "");
+    // NVM_DBG(this, "");
   }
 
-  static bool ends_with(const std::string& subj, const std::string& suffix) {
-    return subj.size() >= suffix.size() && std::equal(
-      suffix.rbegin(), suffix.rend(), subj.rbegin()
-    );
+  static bool ends_with(const std::string &subj, const std::string &suffix) {
+    return subj.size() >= suffix.size() &&
+           std::equal(suffix.rbegin(), suffix.rend(), subj.rbegin());
   }
 
   static const char sep = '/';
 
-  void fpath(const std::string& fpath) {
+  void fpath(const std::string &fpath) {
     int sep_idx = fpath.find_last_of(sep, fpath.length());
     int fname_idx = sep_idx + 1;
 
-    while(sep_idx > 0 && fpath[sep_idx] == sep) {
+    while (sep_idx > 0 && fpath[sep_idx] == sep) {
       --sep_idx;
     }
 
@@ -94,20 +94,23 @@ public:
     dpath_ = fpath.substr(0, sep_idx + 1);
     fname_ = fpath.substr(fname_idx);
 
-    nvm_managed_ = ends_with(fname_, "log") || \
-                   ends_with(fname_, "sst") || \
+    nvm_managed_ = ends_with(fname_, "log") || ends_with(fname_, "sst") ||
                    ends_with(fname_, "ldb");
   }
 
-  const std::string& fpath(void) const { return fpath_; }
+  const std::string &fpath(void) const { return fpath_; }
 
-  void dpath(const std::string& dpath) { fpath(dpath + std::string(1, sep) + fname_); }
+  void dpath(const std::string &dpath) {
+    fpath(dpath + std::string(1, sep) + fname_);
+  }
 
-  const std::string& dpath(void) const { return dpath_; }
+  const std::string &dpath(void) const { return dpath_; }
 
-  void fname(const std::string& fname) { fpath(dpath_ + std::string(1, sep) + fname); }
+  void fname(const std::string &fname) {
+    fpath(dpath_ + std::string(1, sep) + fname);
+  }
 
-  const std::string& fname(void) const { return fname_; }
+  const std::string &fname(void) const { return fname_; }
 
   bool nvm_managed(void) const { return nvm_managed_; }
 
@@ -128,12 +131,12 @@ private:
   bool nvm_managed_;
 };
 
-class EnvNVM;                   // Declared here, defined here and in envnvm.cc
-class NvmStore;                 // Declared here, defined in env_nvm_store.cc
-class NvmFile;                  // Declared here, defined in envnvm_file.cc
-class NvmWritableFile;          // Declared here, defined here
-class NvmSequentialFile;        // Declared here, defined here
-class NvmRandomAccessFile;      // Declared here, defined here
+class EnvNVM;              // Declared here, defined here and in envnvm.cc
+class NvmStore;            // Declared here, defined in env_nvm_store.cc
+class NvmFile;             // Declared here, defined in envnvm_file.cc
+class NvmWritableFile;     // Declared here, defined here
+class NvmSequentialFile;   // Declared here, defined here
+class NvmRandomAccessFile; // Declared here, defined here
 
 enum BlkState {
   kFree = 0x1,
@@ -146,22 +149,20 @@ enum BlkState {
 // Stateful wrapper for provisioning of virtual blocks
 class NvmStore {
 public:
-  NvmStore(EnvNVM* env,
-           const std::string &dev_name,
-           const std::vector<int> &punits,
-           const std::string& mpath,
-           size_t rate,
-           const std::string &mapping,
-           size_t height);
+  NvmStore(EnvNVM *env, const std::string &dev_name,
+           const std::vector<int> &punits, const std::string &mpath,
+           size_t rate, const std::string &mapping, size_t height);
 
   ~NvmStore(void);
 
-  struct nvm_vblk* get(void);
-  struct nvm_vblk* get_reserved(size_t blk_idx);
+  struct nvm_vblk *get(void);
+  struct nvm_vblk *get_reserved(size_t blk_idx);
 
-  void put(struct nvm_vblk* blk);
+  void put(struct nvm_vblk *blk);
 
-  struct nvm_dev *GetDev(void) const { return dev_; }
+  struct nvm_dev *GetDev(void) const {
+    return dev_;
+  }
   std::string GetDevName(void) const { return dev_name_; }
   std::string GetDevPath(void) const { return dev_path_; }
   std::string GetMapping(void) const { return mapping_; }
@@ -180,14 +181,13 @@ public:
   }
 
 protected:
+  Status recover(const std::string &mpath);
 
-  Status recover(const std::string& mpath);
-
-  Status persist(const std::string& mpath);
+  Status persist(const std::string &mpath);
 
   std::string txt(void);
 
-  EnvNVM* env_;
+  EnvNVM *env_;
   std::string dev_name_;
   std::string dev_path_;
   struct nvm_dev *dev_;
@@ -201,9 +201,9 @@ protected:
   port::Mutex mutex_;
   uint16_t curs_;
   uint16_t nblocks_;
-  std::deque<struct nvm_vblk*> reserved_;
+  std::deque<struct nvm_vblk *> reserved_;
 
-  std::deque<std::pair<BlkState, struct nvm_vblk*>> blks_;
+  std::deque<std::pair<BlkState, struct nvm_vblk *>> blks_;
 };
 
 class NvmFile {
@@ -212,13 +212,13 @@ class NvmFile {
 public:
   // Construct an NvmFile using nvm device associated with Env
   // if mpath exists, meta-data will be loaded from file via default-env
-  NvmFile(EnvNVM* env, const FPathInfo& info, const std::string mpath);
+  NvmFile(EnvNVM *env, const FPathInfo &info, const std::string mpath);
 
   Status Allocate(uint64_t offset, uint64_t len);
 
-  Status Read(uint64_t offset, size_t n, Slice* result, char* scratch) const;
-  Status Append(const Slice& data);
-  Status PositionedAppend(const Slice& data, uint64_t offset);
+  Status Read(uint64_t offset, size_t n, Slice *result, char *scratch) const;
+  Status Append(const Slice &data);
+  Status PositionedAppend(const Slice &data, uint64_t offset);
   Status Truncate(uint64_t size);
   Status Close(void);
   Status Sync(void);
@@ -227,7 +227,7 @@ public:
   Status Flush(bool padded);
   Status Flush(void);
 
-  void Rename(const std::string& fname);
+  void Rename(const std::string &fname);
   void PrepareWrite(size_t offset, size_t len);
 
   uint64_t ModifiedTime(void) const;
@@ -238,12 +238,12 @@ public:
 
   bool IsSyncThreadSafe() const;
 
-  size_t GetUniqueId(char* id, size_t max_size) const;
+  size_t GetUniqueId(char *id, size_t max_size) const;
   Status InvalidateCache(size_t offset, size_t length);
 
   bool IsNamed(const std::string &fname) const;
-  const std::string& GetFname(void) const;
-  const std::string& GetDpath(void) const;
+  const std::string &GetFname(void) const;
+  const std::string &GetDpath(void) const;
 
   void Ref(void);
   void Unref(void);
@@ -254,14 +254,14 @@ public:
   port::RWMutex read_mutex_;
 
 private:
-  ~NvmFile(void);               // Unref eventually deletes the object
+  ~NvmFile(void); // Unref eventually deletes the object
 
-  NvmFile(const NvmFile&);      // No copying allowed.
-  void operator=(const NvmFile&);
+  NvmFile(const NvmFile &); // No copying allowed.
+  void operator=(const NvmFile &);
 
   Status pad_last_block(void);
 
-  EnvNVM* env_;
+  EnvNVM *env_;
   port::Mutex refs_mutex_;
   int refs_;
   FPathInfo info_;
@@ -275,17 +275,13 @@ private:
   size_t buf_nbytes_;
   size_t buf_nbytes_max_;
 
-  std::deque<struct nvm_vblk*> blks_;
+  std::deque<struct nvm_vblk *> blks_;
 };
 
-template<typename T>
-std::string num_to_hex(T i, int width)
-{
+template <typename T> std::string num_to_hex(T i, int width) {
   std::stringstream stream;
 
-  stream << "0x"
-         << std::setfill ('0') << std::setw(width)
-         << std::hex << i;
+  stream << "0x" << std::setfill('0') << std::setw(width) << std::hex << i;
 
   return stream.str();
 }
@@ -296,7 +292,7 @@ std::string num_to_hex(T i, int width)
 //
 class EnvNVM : public Env {
 public:
-  EnvNVM(const std::string& uri);
+  EnvNVM(const std::string &uri);
   ~EnvNVM(void);
 
   // Open (an existing) file with sequential read-only access
@@ -304,22 +300,18 @@ public:
   // On success, stores a pointer to a new SequentialFile instance in *result
   // and returns OK. On failure stores nullptr in *result and returns non-OK.
   //
-  virtual Status NewSequentialFile(
-    const std::string& fpath,
-    unique_ptr<SequentialFile>* result,
-    const EnvOptions& options
-  ) override;
+  virtual Status NewSequentialFile(const std::string &fpath,
+                                   unique_ptr<SequentialFile> *result,
+                                   const EnvOptions &options) override;
 
   // Open (an existing) file with random read-only access
   //
   // On success, stores a pointer to a new RandomAccessFile instance in *result
   // and returns OK. On failure stores nullptr in *result and returns non-OK.
   //
-  virtual Status NewRandomAccessFile(
-    const std::string& fpath,
-    unique_ptr<RandomAccessFile>* result,
-    const EnvOptions& options
-  ) override;
+  virtual Status NewRandomAccessFile(const std::string &fpath,
+                                     unique_ptr<RandomAccessFile> *result,
+                                     const EnvOptions &options) override;
 
   // Create and open a file with write-access
   //
@@ -328,11 +320,9 @@ public:
   //
   // NOTE: If a file with the same name already exists, then the existing file
   // is deleted prior to creation.
-  virtual Status NewWritableFile(
-    const std::string& fpath,
-    unique_ptr<WritableFile>* result,
-    const EnvOptions& options
-  ) override;
+  virtual Status NewWritableFile(const std::string &fpath,
+                                 unique_ptr<WritableFile> *result,
+                                 const EnvOptions &options) override;
 
   // Rename and open a file with write-access
   //
@@ -342,24 +332,20 @@ public:
   // NOTE: Single-threaded access is assumed?
   // NOTE: If a file with the same name already exists, then the existing file
   // is deleted prior to creation.
-  virtual Status ReuseWritableFile(
-    const std::string& fpath,
-    const std::string& old_fpath,
-    unique_ptr<WritableFile>* result,
-    const EnvOptions& options
-  ) override;
+  virtual Status ReuseWritableFile(const std::string &fpath,
+                                   const std::string &old_fpath,
+                                   unique_ptr<WritableFile> *result,
+                                   const EnvOptions &options) override;
 
   // Open a directory
   //
   // On success, stores a pointer to a new Directory instance in *result and
   // returns OK. On failure stores nullptr in *result and returns non-OK.
-  virtual Status NewDirectory(
-    const std::string& dpath,
-    unique_ptr<Directory>* result
-  ) override {
-    NVM_DBG(this, "dpath(" << dpath << ")");
+  virtual Status NewDirectory(const std::string &dpath,
+                              unique_ptr<Directory> *result) override {
+    // NVM_DBG(this, "dpath(" << dpath << ")");
     Status s = posix_->NewDirectory(dpath, result);
-    NVM_DBG(this, s.ToString());
+    // NVM_DBG(this, s.ToString());
     return s;
   }
 
@@ -368,15 +354,13 @@ public:
   //                  the calling process does not have permission to determine
   //                  whether this file exists, or if the path is invalid.
   //         IOError if an IO Error was encountered
-  virtual Status FileExists(const std::string& fpath) override;
+  virtual Status FileExists(const std::string &fpath) override;
 
   // Store in *result the names of the children of the specified directory.
   // The names are relative to "dir".
   // Original contents of *results are dropped.
-  virtual Status GetChildren(
-    const std::string& dpath,
-    std::vector<std::string>* result
-  ) override;
+  virtual Status GetChildren(const std::string &dpath,
+                             std::vector<std::string> *result) override;
 
   // Store in *result the attributes of the children of the specified directory.
   // In case the implementation lists the directory prior to iterating the files
@@ -384,59 +368,53 @@ public:
   // result.
   // The name attributes are relative to "dir".
   // Original contents of *results are dropped.
-  virtual Status GetChildrenFileAttributes(
-    const std::string& dpath,
-    std::vector<FileAttributes>* result
-  ) override;
+  virtual Status
+  GetChildrenFileAttributes(const std::string &dpath,
+                            std::vector<FileAttributes> *result) override;
 
   // Store the size of fpath in *file_size.
-  virtual Status GetFileSize(
-    const std::string& fpath,
-    uint64_t* fsize
-  ) override;
+  virtual Status GetFileSize(const std::string &fpath,
+                             uint64_t *fsize) override;
 
   // Delete the named file.
-  virtual Status DeleteFile(const std::string& fpath) override;
+  virtual Status DeleteFile(const std::string &fpath) override;
 
   // Create the specified directory. Returns error if directory exists.
-  virtual Status CreateDir(const std::string& dpath) override {
-    NVM_DBG(this, "delegating... dpath(" << dpath << ")");
+  virtual Status CreateDir(const std::string &dpath) override {
+    // NVM_DBG(this, "delegating... dpath(" << dpath << ")");
     Status s = posix_->CreateDir(dpath);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
   // Creates directory if it does not exist
   // Returns Ok if it exists, or successfully created. Non-OK otherwise.
-  virtual Status CreateDirIfMissing(const std::string& dpath) override {
-    NVM_DBG(this, "delegating... dpath(" << dpath << ")");
+  virtual Status CreateDirIfMissing(const std::string &dpath) override {
+    // NVM_DBG(this, "delegating... dpath(" << dpath << ")");
     Status s = posix_->CreateDirIfMissing(dpath);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
   // Delete the specified directory.
-  virtual Status DeleteDir(const std::string& dpath) override {
-    NVM_DBG(this, "delegating... dpath(" << dpath << ")");
+  virtual Status DeleteDir(const std::string &dpath) override {
+    // NVM_DBG(this, "delegating... dpath(" << dpath << ")");
     Status s = posix_->DeleteDir(dpath);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
   // Store the last modification time of fpath in *file_mtime.
-  virtual Status GetFileModificationTime(
-    const std::string& fpath,
-    uint64_t* file_mtime) override;
+  virtual Status GetFileModificationTime(const std::string &fpath,
+                                         uint64_t *file_mtime) override;
 
   // Rename file fpath_src to fpath_tgt
-  virtual Status RenameFile(const std::string& fpath_src,
-                            const std::string& fpath_tgt) override;
+  virtual Status RenameFile(const std::string &fpath_src,
+                            const std::string &fpath_tgt) override;
 
   // Hard Link file at fpath_src to fpath_tgt
-  virtual Status LinkFile(
-    const std::string& fpath_src,
-    const std::string& fpath_tgt
-  ) override {
+  virtual Status LinkFile(const std::string &fpath_src,
+                          const std::string &fpath_tgt) override {
     return Status::NotSupported("LinkFile is not supported for this Env");
   }
 
@@ -446,26 +424,25 @@ public:
 
 private:
   // PRIVATE ADDITIONS the Env interface - BEGIN
-  NvmFile* FindFileUnguarded(const FPathInfo& info);
+  NvmFile *FindFileUnguarded(const FPathInfo &info);
 
-  Status DeleteFileUnguarded(const FPathInfo& info);
+  Status DeleteFileUnguarded(const FPathInfo &info);
   // PRIVATE ADDITIONS the Env interface - END
 
-//
-// The following public methods are intercepted for debug tracing but otherwise
-// entirely delegated to default environment.
-//
+  //
+  // The following public methods are intercepted for debug tracing but
+  // otherwise entirely delegated to default environment.
+  //
 public:
   // Create a logger
   //
   // On success, stores a pointer to a new Logger instance in *result
   // and returns OK. On failure stores nullptr in *result and returns non-OK.
-  virtual Status NewLogger(
-    const std::string& fpath, shared_ptr<Logger>* result
-  ) {
-    NVM_DBG(this, "delegating... fpath(" << fpath << ")");
+  virtual Status NewLogger(const std::string &fpath,
+                           shared_ptr<Logger> *result) {
+    // NVM_DBG(this, "delegating... fpath(" << fpath << ")");
     Status s = posix_->NewLogger(fpath, result);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
@@ -482,20 +459,20 @@ public:
   // failure. I.e., this call does not wait for existing locks to go away.
   //
   // May create the named file if it does not already exist.
-  virtual Status LockFile(const std::string& fpath, FileLock** lock) override {
-    NVM_DBG(this, "delegating... fpath(" << fpath << ")");
+  virtual Status LockFile(const std::string &fpath, FileLock **lock) override {
+    // NVM_DBG(this, "delegating... fpath(" << fpath << ")");
     Status s = posix_->LockFile(fpath, lock);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
   // Release the lock acquired by a previous successful call to LockFile.
   // REQUIRES: lock was returned by a successful LockFile() call
   // REQUIRES: lock has not already been unlocked.
-  virtual Status UnlockFile(FileLock* lock) override {
-    NVM_DBG(this, "lock(" << lock << ") -- delegating");
+  virtual Status UnlockFile(FileLock *lock) override {
+    // NVM_DBG(this, "lock(" << lock << ") -- delegating");
     Status s = posix_->UnlockFile(lock);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
@@ -504,7 +481,7 @@ public:
   // However, it is often used as system time such as in GenericRateLimiter
   // and other places so a port needs to return system time in order to work.
   virtual uint64_t NowMicros(void) override {
-    /*NVM_DBG(this, "");*/
+    /*// NVM_DBG(this, "");*/
     return posix_->NowMicros();
   }
 
@@ -512,42 +489,40 @@ public:
   // useful for computing deltas of time in one run.
   // Default implementation simply relies on NowMicros
   virtual uint64_t NowNanos(void) override {
-    /*NVM_DBG(this, "");*/
+    /*// NVM_DBG(this, "");*/
     return posix_->NowNanos();
   }
 
   // Get the number of seconds since the Epoch, 1970-01-01 00:00:00 (UTC).
-  virtual Status GetCurrentTime(int64_t* unix_time) override {
-    NVM_DBG(this, "delegating...");
+  virtual Status GetCurrentTime(int64_t *unix_time) override {
+    // NVM_DBG(this, "delegating...");
     Status s = posix_->GetCurrentTime(unix_time);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
   // Converts seconds-since-Jan-01-1970 to a printable string
   virtual std::string TimeToString(uint64_t stamp) override {
-    NVM_DBG(this, "delegating...  stamp(" << stamp << ")");
+    // NVM_DBG(this, "delegating...  stamp(" << stamp << ")");
     std::string time = posix_->TimeToString(stamp);
-    NVM_DBG(this, "time(" << time << ")");
+    // NVM_DBG(this, "time(" << time << ")");
     return time;
   }
 
   // Get the current host name.
-  virtual Status GetHostName(char* name, uint64_t len) override {
-    NVM_DBG(this, "delegating...");
+  virtual Status GetHostName(char *name, uint64_t len) override {
+    // NVM_DBG(this, "delegating...");
     Status s = posix_->GetHostName(name, len);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
   // Get full directory name for this db.
-  virtual Status GetAbsolutePath(
-    const std::string& db_path,
-    std::string* output_path
-  ) override {
-    NVM_DBG(this, "delegating...");
+  virtual Status GetAbsolutePath(const std::string &db_path,
+                                 std::string *output_path) override {
+    // NVM_DBG(this, "delegating...");
     Status s = posix_->GetAbsolutePath(db_path, output_path);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
@@ -555,10 +530,10 @@ public:
   // or many not have just been created. The directory may or may not differ
   // between runs of the same process, but subsequent calls will return the
   // same directory.
-  virtual Status GetTestDirectory(std::string* dpath) override {
-    NVM_DBG(this, "delegating...");
+  virtual Status GetTestDirectory(std::string *dpath) override {
+    // NVM_DBG(this, "delegating...");
     Status s = posix_->GetTestDirectory(dpath);
-    NVM_DBG(this, "Status(" << s.ToString() << ")");
+    // NVM_DBG(this, "Status(" << s.ToString() << ")");
     return s;
   }
 
@@ -572,40 +547,37 @@ public:
   // serialized.
   // When the UnSchedule function is called, the unschedFunction
   // registered at the time of Schedule is invoked with arg as a parameter.
-  virtual void Schedule(
-    void (*function)(void* arg),
-    void* arg,
-    Priority pri = LOW,
-    void* tag = nullptr,
-    void (*unschedFunction)(void* arg) = 0
-  ) override {
-    NVM_DBG(this, "delegating...");
+  virtual void Schedule(void (*function)(void *arg), void *arg,
+                        Priority pri = LOW, void *tag = nullptr,
+                        void (*unschedFunction)(void *arg) = 0) override {
+    // NVM_DBG(this, "delegating...");
     posix_->Schedule(function, arg, pri, tag, unschedFunction);
   }
 
   // Arrange to remove jobs for given arg from the queue_ if they are not
   // already scheduled. Caller is expected to have exclusive lock on arg.
-  virtual int UnSchedule(void* arg, Priority pri) override {
-    NVM_DBG(this, "delegating...");
+  virtual int UnSchedule(void *arg, Priority pri) override {
+    // NVM_DBG(this, "delegating...");
     return posix_->UnSchedule(arg, pri);
   }
 
   // Start a new thread, invoking "function(arg)" within the new thread.
   // When "function(arg)" returns, the thread will be destroyed.
-  virtual void StartThread(void (*function)(void* arg), void* arg) override {
-    NVM_DBG(this, "delegating...");
-    posix_->StartThread(function ,arg);
+  virtual void StartThread(void (*function)(void *arg), void *arg) override {
+    // NVM_DBG(this, "delegating...");
+    posix_->StartThread(function, arg);
   }
 
   // Wait for all threads started by StartThread to terminate.
   virtual void WaitForJoin(void) override {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     posix_->WaitForJoin();
   }
 
   // Get thread pool queue length for specific thrad pool.
-  virtual unsigned int GetThreadPoolQueueLen(Priority pri = LOW) const override {
-    NVM_DBG(this, "delegating...");
+  virtual unsigned int
+  GetThreadPoolQueueLen(Priority pri = LOW) const override {
+    // NVM_DBG(this, "delegating...");
     return posix_->GetThreadPoolQueueLen(pri);
   }
 
@@ -613,7 +585,7 @@ public:
   // for this environment. 'LOW' is the default pool.
   // default number: 1
   virtual void SetBackgroundThreads(int number, Priority pri = LOW) override {
-    NVM_DBG(this, "delegating... number(" <<number<< "), pri(" <<pri<< ")");
+    // NVM_DBG(this, "delegating... number(" << number << "), pri(" << pri << ")");
     posix_->SetBackgroundThreads(number, pri);
   }
 
@@ -621,64 +593,62 @@ public:
   // for this environment if it is smaller than specified. 'LOW' is the default
   // pool.
   virtual void IncBackgroundThreadsIfNeeded(int number, Priority pri) override {
-    NVM_DBG(this, "delegating... number(" <<number<< ", pri(" <<pri<< ")");
+    // NVM_DBG(this, "delegating... number(" << number << ", pri(" << pri << ")");
     posix_->IncBackgroundThreadsIfNeeded(number, pri);
   }
 
   // Lower IO priority for threads from the specified pool.
   virtual void LowerThreadPoolIOPriority(Priority pool = LOW) override {
-    NVM_DBG(this, "delegating... pool(" << pool << ")");
+    // NVM_DBG(this, "delegating... pool(" << pool << ")");
     posix_->LowerThreadPoolIOPriority(pool);
   }
 
   // Sleep/delay the thread for the perscribed number of micro-seconds.
   virtual void SleepForMicroseconds(int micros) override {
-    NVM_DBG(this, "delegating... micros(" << micros << ")");
+    // NVM_DBG(this, "delegating... micros(" << micros << ")");
     posix_->SleepForMicroseconds(micros);
   }
 
   // Returns the status of all threads that belong to the current Env.
-  virtual Status GetThreadList(
-    std::vector<ThreadStatus>* thread_list
-  ) override {
-    NVM_DBG(this, "delegating...");
+  virtual Status
+  GetThreadList(std::vector<ThreadStatus> *thread_list) override {
+    // NVM_DBG(this, "delegating...");
     return posix_->GetThreadList(thread_list);
   }
 
   // Returns the pointer to ThreadStatusUpdater.  This function will be
   // used in RocksDB internally to update thread status and supports
   // GetThreadList().
-  virtual ThreadStatusUpdater* GetThreadStatusUpdater() const override {
-    NVM_DBG(this, "delegating...");
+  virtual ThreadStatusUpdater *GetThreadStatusUpdater() const override {
+    // NVM_DBG(this, "delegating...");
     return posix_->GetThreadStatusUpdater();
   }
 
   // Returns the ID of the current thread.
   virtual uint64_t GetThreadID(void) const override {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->GetThreadID();
   }
 
   // Generates a unique id that can be used to identify a db
   virtual std::string GenerateUniqueId(void) override {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     std::string uid = posix_->GenerateUniqueId();
-    NVM_DBG(this, "uid(" << uid << ")");
+    // NVM_DBG(this, "uid(" << uid << ")");
     return uid;
   }
 
-  Env* posix_;
-  NvmStore* store_;
+  Env *posix_;
+  NvmStore *store_;
 
 private:
-
   // No copying allowed
-  EnvNVM(const Env&);
-  void operator=(const Env&);
+  EnvNVM(const Env &);
+  void operator=(const Env &);
 
   std::string uri_;
 
-  std::map<std::string, std::vector<NvmFile*>> fs_;
+  std::map<std::string, std::vector<NvmFile *>> fs_;
   port::RWMutex fs_mutex_; // Serializing lookup, creation, and deletion
 };
 
@@ -687,56 +657,54 @@ private:
 //
 class NvmSequentialFile : public SequentialFile {
 public:
-  NvmSequentialFile(void) : SequentialFile() {
-    NVM_DBG(file_, "");
-  }
+  NvmSequentialFile(void) : SequentialFile() { // NVM_DBG(file_, "");
+ }
 
-  NvmSequentialFile(
-    NvmFile *file, const EnvOptions& options
-  ) : SequentialFile(), file_(file), pos_() {
-    NVM_DBG(file_, "");
+  NvmSequentialFile(NvmFile *file, const EnvOptions &options)
+      : SequentialFile(), file_(file), pos_() {
+    // NVM_DBG(file_, "");
 
     file_->Ref();
   }
 
   ~NvmSequentialFile(void) {
-    NVM_DBG(file_, "");
+    // NVM_DBG(file_, "");
 
     file_->Unref();
   }
 
-  virtual Status Read(size_t n, Slice* result, char* scratch) override {
+  virtual Status Read(size_t n, Slice *result, char *scratch) override {
 
-    NVM_DBG(file_, "pos_(" << pos_ << ")");
+    // NVM_DBG(file_, "pos_(" << pos_ << ")");
 
     if (pos_ >= file_->GetFileSize()) {
-      NVM_DBG(file_, "EOF");
+      // NVM_DBG(file_, "EOF");
       *result = Slice();
       return Status::OK();
     }
-    NVM_DBG(file_, "forwarding (fill buffers + read buffers)");
+    // NVM_DBG(file_, "forwarding (fill buffers + read buffers)");
 
     Status s;
 
     ReadLock lock(&file_->read_mutex_);
 
-    NVM_DBG(file_, "forwarding");
+    // NVM_DBG(file_, "forwarding");
     s = file_->Read(pos_, n, result, scratch);
     if (!s.ok()) {
-      NVM_DBG(file_, "FAILED: forwarded read")
+      // NVM_DBG(file_, "FAILED: forwarded read")
       return s;
     }
 
     pos_ += result->size();
 
-    NVM_DBG(file_, "pos_(" << pos_ << ")");
+    // NVM_DBG(file_, "pos_(" << pos_ << ")");
     return s;
   }
 
   virtual Status Skip(uint64_t n) override {
-    NVM_DBG(file_, "n(" << n << ")");
+    // NVM_DBG(file_, "n(" << n << ")");
 
-    if (n + pos_ > file_->GetFileSize()) {      // TODO: Verify this boundary
+    if (n + pos_ > file_->GetFileSize()) { // TODO: Verify this boundary
       return Status::IOError("Skipping beyond end of file");
     }
 
@@ -746,7 +714,7 @@ public:
   }
 
   virtual Status InvalidateCache(size_t offset, size_t length) override {
-    NVM_DBG(file_, "forwarding");
+    // NVM_DBG(file_, "forwarding");
 
     return file_->InvalidateCache(offset, length);
   }
@@ -761,31 +729,25 @@ protected:
 //
 class NvmRandomAccessFile : public RandomAccessFile {
 public:
-  NvmRandomAccessFile(void) : RandomAccessFile() {
-    NVM_DBG(file_, "");
-  }
+  NvmRandomAccessFile(void) : RandomAccessFile() { // NVM_DBG(file_, "");
+}
 
-  NvmRandomAccessFile(
-    NvmFile *file, const EnvOptions& options
-  ) : RandomAccessFile(), file_(file) {
-    NVM_DBG(file_, "");
+  NvmRandomAccessFile(NvmFile *file, const EnvOptions &options)
+      : RandomAccessFile(), file_(file) {
+    // NVM_DBG(file_, "");
 
     file_->Ref();
   }
 
   ~NvmRandomAccessFile(void) {
-    NVM_DBG(file_, "");
+    // NVM_DBG(file_, "");
 
     file_->Unref();
   }
 
-  virtual Status Read(
-    uint64_t offset,
-    size_t n,
-    Slice* result,
-    char* scratch
-  ) const override {
-    NVM_DBG(file_, "forwarding");
+  virtual Status Read(uint64_t offset, size_t n, Slice *result,
+                      char *scratch) const override {
+    // NVM_DBG(file_, "forwarding");
 
     ReadLock lock(&file_->read_mutex_);
 
@@ -793,21 +755,20 @@ public:
 
     s = file_->Read(offset, n, result, scratch);
     if (!s.ok()) {
-      NVM_DBG(file_, "FAILED: failed reading buffers");
+      // NVM_DBG(file_, "FAILED: failed reading buffers");
     }
 
     return s;
   }
 
   virtual bool ShouldForwardRawRequest(void) const override {
-    NVM_DBG(file_, "false");
+    // NVM_DBG(file_, "false");
 
     return false;
   }
 
-  virtual void EnableReadAhead(void) override {
-    NVM_DBG(file_, "ignoring");
-  }
+  virtual void EnableReadAhead(void) override { // NVM_DBG(file_, "ignoring");
+}
 
   // Tries to get an unique ID for this file that will be the same each time
   // the file is opened (and will stay the same while the file is open).
@@ -824,18 +785,18 @@ public:
   // a single varint.
   //
   // Note: these IDs are only valid for the duration of the process.
-  virtual size_t GetUniqueId(char* id, size_t max_size) const override {
-    NVM_DBG(file_, "forwarding");
+  virtual size_t GetUniqueId(char *id, size_t max_size) const override {
+    // NVM_DBG(file_, "forwarding");
 
     return file_->GetUniqueId(id, max_size);
   }
 
   virtual void Hint(AccessPattern pattern) override {
-    NVM_DBG(file_, "ignoring");
+    // NVM_DBG(file_, "ignoring");
   }
 
   virtual Status InvalidateCache(size_t offset, size_t length) override {
-    NVM_DBG(file_, "forwarding");
+    // NVM_DBG(file_, "forwarding");
 
     return file_->InvalidateCache(offset, length);
   }
@@ -851,39 +812,38 @@ protected:
 class NvmWritableFile : public WritableFile {
 public:
   NvmWritableFile(void) : WritableFile(), truncated_(false) {
-    NVM_DBG(this, "truncated_: " << std::boolalpha << truncated_);
+    // NVM_DBG(this, "truncated_: " << std::boolalpha << truncated_);
   }
 
-  NvmWritableFile(
-    NvmFile *file, const EnvOptions& options
-  ) : WritableFile(), file_(file), truncated_(false) {
-    NVM_DBG(this, "truncated_: " << std::boolalpha << truncated_);
+  NvmWritableFile(NvmFile *file, const EnvOptions &options)
+      : WritableFile(), file_(file), truncated_(false) {
+    // NVM_DBG(this, "truncated_: " << std::boolalpha << truncated_);
 
     file_->Ref();
   }
 
   ~NvmWritableFile(void) {
-    NVM_DBG(this, "truncated_: " << std::boolalpha << truncated_);
+    // NVM_DBG(this, "truncated_: " << std::boolalpha << truncated_);
 
     file_->Unref();
   }
 
   virtual size_t GetRequiredBufferAlignment(void) const override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     return file_->GetRequiredBufferAlignment();
   }
 
-  virtual Status Append(const Slice& slice) override {
-    NVM_DBG(this, "forwarding...");
+  virtual Status Append(const Slice &slice) override {
+    // NVM_DBG(this, "forwarding...");
 
     WriteLock lock(&file_->read_mutex_);
 
     return file_->Append(slice);
   }
 
-  virtual Status PositionedAppend(const Slice& slice, uint64_t offset) {
-    NVM_DBG(this, "NOT SUPPORTED");
+  virtual Status PositionedAppend(const Slice &slice, uint64_t offset) {
+    // NVM_DBG(this, "NOT SUPPORTED");
 
     return Status::NotSupported();
   }
@@ -892,7 +852,7 @@ public:
   // It is not always possible to keep track of the file size due to whole pages
   // writes. The behavior is undefined if called with other writes to follow.
   virtual Status Truncate(uint64_t size) override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     WriteLock lock(&file_->read_mutex_);
 
@@ -905,19 +865,19 @@ public:
   }
 
   virtual Status Close(void) override {
-    NVM_DBG(this, "truncated_:" << truncated_);
+    // NVM_DBG(this, "truncated_:" << truncated_);
 
     if (!truncated_) {
-      NVM_DBG(this, "Truncating...");
+      // NVM_DBG(this, "Truncating...");
       Truncate(file_->GetFileSize());
     }
 
-    NVM_DBG(this, "Closing...");
+    // NVM_DBG(this, "Closing...");
     return file_->Close();
   }
 
   virtual Status Flush(void) override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     WriteLock lock(&file_->read_mutex_);
 
@@ -926,7 +886,7 @@ public:
 
   // sync data
   virtual Status Sync(void) override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     return file_->Sync();
   }
@@ -938,7 +898,7 @@ public:
   // metadata as well.
   //
   virtual Status Fsync(void) override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     return file_->Fsync();
   }
@@ -946,7 +906,7 @@ public:
   // true if Sync() and Fsync() are safe to call concurrently with Append()
   // and Flush().
   virtual bool IsSyncThreadSafe(void) const override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     return file_->IsSyncThreadSafe();
   }
@@ -956,13 +916,13 @@ public:
   // If rate limiting is not enabled, this call has no effect.
   //
   virtual void SetIOPriority(Env::IOPriority pri) override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     io_priority_ = pri;
   }
 
   virtual Env::IOPriority GetIOPriority(void) override {
-    NVM_DBG(this, "caught");
+    // NVM_DBG(this, "caught");
 
     return io_priority_;
   }
@@ -971,14 +931,14 @@ public:
   // Get the size of valid data in the file.
   //
   virtual uint64_t GetFileSize() override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     return file_->GetFileSize();
   }
 
   // For documentation, refer to RandomAccessFile::GetUniqueId()
-  virtual size_t GetUniqueId(char* id, size_t max_size) const override {
-    NVM_DBG(this, "forwarding");
+  virtual size_t GetUniqueId(char *id, size_t max_size) const override {
+    // NVM_DBG(this, "forwarding");
 
     return file_->GetUniqueId(id, max_size);
   }
@@ -988,7 +948,7 @@ public:
   // If the system is not caching the file contents, then this is a noop.
   // This call has no effect on dirty pages in the cache.
   virtual Status InvalidateCache(size_t offset, size_t length) override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     return file_->InvalidateCache(offset, length);
   }
@@ -1000,9 +960,10 @@ public:
   // without waiting for completion.
   // Default implementation does nothing.
   virtual Status RangeSync(uint64_t offset, uint64_t nbytes) override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     return file_->RangeSync(offset, nbytes);
+    ;
   }
 
   // PrepareWrite performs any necessary preparation for a write
@@ -1011,7 +972,7 @@ public:
   // fragmentation and/or less waste from over-zealous filesystem
   // pre-allocation.
   virtual void PrepareWrite(size_t offset, size_t len) override {
-    /*NVM_DBG(this, "forwarding");*/
+    /*// NVM_DBG(this, "forwarding");*/
 
     file_->PrepareWrite(offset, len);
   }
@@ -1027,15 +988,15 @@ protected:
   // Pre-allocate space for a file.
   //
   virtual Status Allocate(uint64_t offset, uint64_t len) override {
-    NVM_DBG(this, "forwarding");
+    // NVM_DBG(this, "forwarding");
 
     return file_->Allocate(offset, len);
   }
 
- private:
+private:
   // No copying allowed
-  NvmWritableFile(const WritableFile&);
-  void operator=(const WritableFile&);
+  NvmWritableFile(const WritableFile &);
+  void operator=(const WritableFile &);
 
 protected:
   NvmFile *file_;
@@ -1043,6 +1004,6 @@ protected:
   bool truncated_;
 };
 
-}  // namespace rocksdb
+} // namespace rocksdb
 
-#endif  // STORAGE_ROCKSDB_ENVNVM_H_
+#endif // STORAGE_ROCKSDB_ENVNVM_H_

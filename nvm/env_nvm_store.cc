@@ -1,5 +1,5 @@
-#include <algorithm>
 #include "env_nvm.h"
+#include <algorithm>
 #include <exception>
 
 namespace rocksdb {
@@ -13,24 +13,20 @@ namespace rocksdb {
 //  * Recovers only from nvm.meta
 //  * Erases upon get
 //
-NvmStore::NvmStore(
-  EnvNVM* env,
-  const std::string& dev_name,
-  const std::vector<int>& punits,
-  const std::string& mpath,
-  size_t rate,
-  const std::string& mapping,
-  size_t height
-) : env_(env), dev_name_(dev_name), dev_path_("/dev/" + dev_name), mpath_(mpath),
-    rate_(rate), mapping_(mapping), height_(height), curs_(0), nblocks_(0) {
-  NVM_DBG(this, "Opening NvmStore");
+NvmStore::NvmStore(EnvNVM *env, const std::string &dev_name,
+                   const std::vector<int> &punits, const std::string &mpath,
+                   size_t rate, const std::string &mapping, size_t height)
+    : env_(env), dev_name_(dev_name), dev_path_("/dev/" + dev_name),
+      mpath_(mpath), rate_(rate), mapping_(mapping), height_(height), curs_(0),
+      nblocks_(0) {
+  // NVM_DBG(this, "Opening NvmStore");
 
-  dev_ = nvm_dev_open(dev_path_.c_str());               // Open device
+  dev_ = nvm_dev_open(dev_path_.c_str()); // Open device
   if (!dev_) {
     NVM_DBG(this, "FAILED: opening device");
     throw std::runtime_error("FAILED: opening device");
   }
-  geo_ = nvm_dev_get_geo(dev_);                         // Grab geometry
+  geo_ = nvm_dev_get_geo(dev_); // Grab geometry
 
   if ((punits.size() % geo_->l.npunit) != 0) {
     NVM_DBG(this, "FAILED: invalid number of punits");
@@ -44,7 +40,7 @@ NvmStore::NvmStore(
 
   size_t groups = punits.size() / geo_->l.npunit;
 
-  for (size_t i = 0; i < punits.size(); ++i) {          // Construct punit addrs
+  for (size_t i = 0; i < punits.size(); ++i) { // Construct punit addrs
     struct nvm_addr addr;
 
     addr.ppa = 0;
@@ -57,11 +53,13 @@ NvmStore::NvmStore(
   if (strcmp(mapping_.c_str(), "1") == 0) {
     nblocks_ = geo_->l.nchunk;
   } else if (strcmp(mapping_.c_str(), "2") == 0) {
-    nblocks_ = (((geo_->l.nchunk / height_) * groups) - geo_->l.nchunk % height_);
+    nblocks_ =
+        (((geo_->l.nchunk / height_) * groups) - geo_->l.nchunk % height_);
   }
 
   NVM_DBG(this, "height: " << height_);
   NVM_DBG(this, "blocks: " << nblocks_);
+  NVM_DBG(this, "chunk in block: " << punits.size());
   NVM_DBG(this, "groups: " << groups);
 
   // TODO: Check for duplicates
@@ -94,7 +92,7 @@ bool compareAddrs(const nvm_addr &a, const nvm_addr &b) {
 }
 
 Status NvmStore::recover(const std::string &mpath) {
-  NVM_DBG(this, "mpath(" << mpath << ")");
+  // NVM_DBG(this, "mpath(" << mpath << ")");
 
   // Initialize and allocate vblks with defaults (kFree)
   if (strcmp(mapping_.c_str(), "1") == 0) {
@@ -150,8 +148,8 @@ Status NvmStore::recover(const std::string &mpath) {
     }
   }
 
-  if (!env_->posix_->FileExists(mpath).ok()) {          // DONE
-    NVM_DBG(this, "INFO: mpath does not exist, nothing to recover.");
+  if (!env_->posix_->FileExists(mpath).ok()) { // DONE
+    // NVM_DBG(this, "INFO: mpath does not exist, nothing to recover.");
     return Status::OK();
   }
 
@@ -171,7 +169,7 @@ Status NvmStore::recover(const std::string &mpath) {
       NVM_DBG(this, "FAILED: getting dev_name from nvm.meta");
       return Status::IOError("FAILED: getting dev_name from nvm.meta");
     }
-    NVM_DBG(this, "dev_name: " << dev_name);
+    // NVM_DBG(this, "dev_name: " << dev_name);
 
     if (dev_name != dev_name_) {
       NVM_DBG(this, "FAILED: instance dev_name != file dev_name");
@@ -185,8 +183,8 @@ Status NvmStore::recover(const std::string &mpath) {
     std::getline(meta, punits);
     std::getline(meta, punits);
 
-    NVM_DBG(this, "punits: " << punits);
-    if (meta.fail()) {      // TODO: Verify punits
+    // NVM_DBG(this, "punits: " << punits);
+    if (meta.fail()) { // TODO: Verify punits
       NVM_DBG(this, "FAILED: parsing HEAD(punits) from meta");
       return Status::IOError("FAILED: parsing HEAD(punits) from meta");
     }
@@ -198,8 +196,9 @@ Status NvmStore::recover(const std::string &mpath) {
     for (punit_idx = 0; punits_ss >> tok; ++punit_idx) {
       size_t punit = strtoul(tok.c_str(), NULL, 16);
 
-      NVM_DBG(this, "punit_idx: " << punit_idx << ", punit: " << num_to_hex(punit, 16));
-      if ((punit_idx+1) > punits_.size()) {
+      // NVM_DBG(this, "punit_idx: " << punit_idx
+      //                             << ", punit: " << num_to_hex(punit, 16));
+      if ((punit_idx + 1) > punits_.size()) {
         NVM_DBG(this, "FAILED: Invalid punit count");
         return Status::IOError("FAILED: Invalid punit count");
       }
@@ -222,7 +221,7 @@ Status NvmStore::recover(const std::string &mpath) {
       NVM_DBG(this, "FAILED: parsing HEAD(curs_) from meta");
       return Status::IOError("FAILED: parsing HEAD(curs_) from meta");
     }
-    NVM_DBG(this, "curs_: " << curs_);
+    // NVM_DBG(this, "curs_: " << curs_);
   }
 
   // Recover blk states
@@ -232,25 +231,25 @@ Status NvmStore::recover(const std::string &mpath) {
 
     for (blk_idx = 0; meta >> line; ++blk_idx) {
 
-      if ((blk_idx+1) > nblocks_) {
+      if ((blk_idx + 1) > nblocks_) {
         NVM_DBG(this, "FAILED: Block count exceeding geometry");
         return Status::IOError("FAILED: Block count exceeding geometry");
       }
 
       int state = strtoul(line.c_str(), NULL, 16);
 
-      NVM_DBG(this, "blk_idx:" << blk_idx << ", line: " << line);
+      // NVM_DBG(this, "blk_idx:" << blk_idx << ", line: " << line);
 
-      switch(state) {
-        case kFree:
-        case kOpen:
-        case kReserved:
-        case kBad:
-          blks_[blk_idx].first = BlkState(state);
-          break;
+      switch (state) {
+      case kFree:
+      case kOpen:
+      case kReserved:
+      case kBad:
+        blks_[blk_idx].first = BlkState(state);
+        break;
 
-        default:
-          break;
+      default:
+        break;
       }
     }
 
@@ -264,18 +263,18 @@ Status NvmStore::recover(const std::string &mpath) {
 }
 
 Status NvmStore::persist(const std::string &mpath) {
-  NVM_DBG(this, "mpath(" << mpath << ")");
+  // NVM_DBG(this, "mpath(" << mpath << ")");
 
   std::stringstream meta_ss;
 
-  meta_ss << dev_name_ << std::endl;    // Store device name
+  meta_ss << dev_name_ << std::endl; // Store device name
 
-  for (auto &addr : punits_) {          // Store parallel units
+  for (auto &addr : punits_) { // Store parallel units
     meta_ss << num_to_hex(addr.ppa, 16) << " ";
   }
   meta_ss << std::endl;
 
-  meta_ss << curs_ << std::endl;        // Store state of blks
+  meta_ss << curs_ << std::endl; // Store state of blks
   for (auto &entry : blks_)
     meta_ss << num_to_hex(entry.first, 2) << std::endl;
 
@@ -293,25 +292,25 @@ NvmStore::~NvmStore(void) {
     NVM_DBG(this, "FAILED: writing meta");
   }
 
-  for (auto &entry : blks_) {   // De-allocate blks
+  for (auto &entry : blks_) { // De-allocate blks
     if (!entry.second)
       continue;
 
     nvm_vblk_free(entry.second);
   }
 
-  nvm_dev_close(dev_);          // Release device
+  nvm_dev_close(dev_); // Release device
 }
 
-struct nvm_vblk* NvmStore::get(void) {
-  NVM_DBG(this, "");
-  NVM_DBG(this, "LOCK ?");
+struct nvm_vblk *NvmStore::get(void) {
+  // NVM_DBG(this, "");
+  // NVM_DBG(this, "LOCK ?");
   MutexLock lock(&mutex_);
-  NVM_DBG(this, "LOCK !");
+  // NVM_DBG(this, "LOCK !");
 
   for (size_t i = 0; i < nblocks_; ++i) {
     const size_t blk_idx = curs_++ % nblocks_;
-    std::pair<BlkState, struct nvm_vblk*> &entry = blks_[blk_idx];
+    std::pair<BlkState, struct nvm_vblk *> &entry = blks_[blk_idx];
 
     switch (entry.first) {
     case kFree:
@@ -345,15 +344,15 @@ struct nvm_vblk* NvmStore::get(void) {
   return NULL;
 }
 
-struct nvm_vblk* NvmStore::get_reserved(size_t blk_idx) {
-  NVM_DBG(this, "");
-  NVM_DBG(this, "LOCK ?");
+struct nvm_vblk *NvmStore::get_reserved(size_t blk_idx) {
+  // NVM_DBG(this, "");
+  // NVM_DBG(this, "LOCK ?");
   MutexLock lock(&mutex_);
-  NVM_DBG(this, "LOCK !");
+  // NVM_DBG(this, "LOCK !");
 
-  std::pair<BlkState, struct nvm_vblk*> &entry = blks_[blk_idx];
+  std::pair<BlkState, struct nvm_vblk *> &entry = blks_[blk_idx];
 
-  switch(entry.first) {
+  switch (entry.first) {
   case kReserved:
     return entry.second;
 
@@ -363,19 +362,17 @@ struct nvm_vblk* NvmStore::get_reserved(size_t blk_idx) {
   }
 }
 
-void NvmStore::put(struct nvm_vblk* blk) {
-  NVM_DBG(this, "");
-  NVM_DBG(this, "LOCK ?");
+void NvmStore::put(struct nvm_vblk *blk) {
+  // NVM_DBG(this, "");
+  // NVM_DBG(this, "LOCK ?");
   MutexLock lock(&mutex_);
-  NVM_DBG(this, "LOCK !");
+  // NVM_DBG(this, "LOCK !");
 
   size_t blk_idx = nvm_vblk_get_addrs(blk)[0].g.blk;
-  NVM_DBG(this, "blk_idx(" << blk_idx << ")");
+  // NVM_DBG(this, "blk_idx(" << blk_idx << ")");
   blks_[blk_idx].first = kFree;
 }
 
-std::string NvmStore::txt(void) {
-  return "";
-}
+std::string NvmStore::txt(void) { return ""; }
 
-}       // namespace rocksdb
+} // namespace rocksdb

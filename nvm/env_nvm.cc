@@ -1,30 +1,31 @@
-#include <exception>
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <chrono>
-#include <regex>
-#include <linux/limits.h>
-#include "rocksdb/utilities/object_registry.h"
 #include "env_nvm.h"
+#include "rocksdb/utilities/object_registry.h"
+#include <chrono>
+#include <exception>
+#include <fstream>
+#include <iostream>
+#include <linux/limits.h>
+#include <regex>
+#include <string>
 
 namespace rocksdb {
 
 static std::string kUriPrefix("nvm://");
 
-static std::regex kNvmUri("nvm://punits:([[:digit:],\\-]+)@([0-9])-([0-9])%([[:alnum:]]+)(/.*)");
-static std::regex kNvmUriPunits("(([[:digit:]]+)-([[:digit:]]+))|([[:digit:]]+)");
+static std::regex kNvmUri(
+    "nvm://punits:([[:digit:],\\-]+)@([0-9])-([0-9])%([[:alnum:]]+)(/.*)");
+static std::regex
+    kNvmUriPunits("(([[:digit:]]+)-([[:digit:]]+))|([[:digit:]]+)");
 
-static Registrar<Env> nvm_reg("nvm://.*", [](const std::string& uri,
-                                           std::unique_ptr<Env>* env_guard) {
-    env_guard->reset(new EnvNVM(uri));
-    return env_guard->get();
+static Registrar<Env> nvm_reg("nvm://.*", [](const std::string &uri,
+                                             std::unique_ptr<Env> *env_guard) {
+  env_guard->reset(new EnvNVM(uri));
+  return env_guard->get();
 });
 
-EnvNVM::EnvNVM(
-  const std::string& uri
-) : Env(), posix_(Env::Default()), uri_(uri), fs_() {
-  NVM_DBG(this, "uri_(" << uri_ << ")");
+EnvNVM::EnvNVM(const std::string &uri)
+    : Env(), posix_(Env::Default()), uri_(uri), fs_() {
+  // NVM_DBG(this, "uri_(" << uri_ << ")");
 
   std::smatch match;
 
@@ -39,43 +40,44 @@ EnvNVM::EnvNVM(
   std::string dev_name_m(match[4].str());
   std::string path_m(match[5].str());
 
-  NVM_DBG(this, "punits_m: " << punits_m);
-  NVM_DBG(this, "mapping_m: " << mapping_m);
-  NVM_DBG(this, "height_m: " << height_m);
-  NVM_DBG(this, "dev_name_m: " << dev_name_m);
-  NVM_DBG(this, "path_m: " << path_m);
+  // NVM_DBG(this, "punits_m: " << punits_m);
+  // NVM_DBG(this, "mapping_m: " << mapping_m);
+  // NVM_DBG(this, "height_m: " << height_m);
+  // NVM_DBG(this, "dev_name_m: " << dev_name_m);
+  // NVM_DBG(this, "path_m: " << path_m);
 
   if (mapping_m != "1" && mapping_m != "2") {
     NVM_DBG(this, "Invalid mapping");
     throw std::runtime_error("Invalid mapping");
   }
 
-  std::vector<int> punits;                      // Parse punits into vector
+  std::vector<int> punits; // Parse punits into vector
 
   while (std::regex_search(punits_m, match, kNvmUriPunits)) {
-    if (match[2].length() && match[3].length()) {       // Range
+    if (match[2].length() && match[3].length()) { // Range
       int bgn = atoi(match[2].str().c_str());
       int end = atoi(match[3].str().c_str());
 
       for (int i = bgn; i <= end; ++i)
         punits.push_back(i);
-    } else if (match[4].length()) {                     // Single
+    } else if (match[4].length()) { // Single
       punits.push_back(atoi(match[4].str().c_str()));
     }
 
     punits_m = match.suffix().str();
   }
 
-  FPathInfo mpath(path_m);                      // Check the path to nvm.meta
+  FPathInfo mpath(path_m); // Check the path to nvm.meta
   Status s = posix_->FileExists(mpath.dpath());
   if (!s.ok()) {
     NVM_DBG(this, "Directory does not exist");
     throw std::runtime_error("Directory does not exist");
   }
 
-  NVM_DBG(this, "mpath: " << mpath.txt());
+  // NVM_DBG(this, "mpath: " << mpath.txt());
 
-  store_ = new NvmStore(this, dev_name_m, punits, mpath.fpath(), 10, mapping_m, std::stoi(height_m));
+  store_ = new NvmStore(this, dev_name_m, punits, mpath.fpath(), 10, mapping_m,
+                        std::stoi(height_m));
 }
 
 EnvNVM::~EnvNVM(void) {
@@ -84,16 +86,14 @@ EnvNVM::~EnvNVM(void) {
   delete store_;
 }
 
-Status EnvNVM::NewSequentialFile(
-  const std::string& fpath,
-  unique_ptr<SequentialFile>* result,
-  const EnvOptions& options
-) {
-  NVM_DBG(this, "fpath(" << fpath << ")");
+Status EnvNVM::NewSequentialFile(const std::string &fpath,
+                                 unique_ptr<SequentialFile> *result,
+                                 const EnvOptions &options) {
+  // NVM_DBG(this, "fpath(" << fpath << ")");
 
   FPathInfo info(fpath);
   if (!info.nvm_managed()) {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->NewSequentialFile(fpath, result, options);
   }
 
@@ -109,16 +109,14 @@ Status EnvNVM::NewSequentialFile(
   return Status::OK();
 }
 
-Status EnvNVM::NewRandomAccessFile(
-  const std::string& fpath,
-  unique_ptr<RandomAccessFile>* result,
-  const EnvOptions& options
-) {
-  NVM_DBG(this, "fpath(" << fpath << ")");
+Status EnvNVM::NewRandomAccessFile(const std::string &fpath,
+                                   unique_ptr<RandomAccessFile> *result,
+                                   const EnvOptions &options) {
+  // NVM_DBG(this, "fpath(" << fpath << ")");
 
   FPathInfo info(fpath);
   if (!info.nvm_managed()) {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->NewRandomAccessFile(fpath, result, options);
   }
 
@@ -133,34 +131,30 @@ Status EnvNVM::NewRandomAccessFile(
   return Status::OK();
 }
 
-Status EnvNVM::ReuseWritableFile(
-  const std::string& fpath,
-  const std::string& fpath_old,
-  unique_ptr<WritableFile>* result,
-  const EnvOptions& options
-) {
-  NVM_DBG(this, "fpath(" << fpath << "), fpath_old(" << fpath_old << ")");
+Status EnvNVM::ReuseWritableFile(const std::string &fpath,
+                                 const std::string &fpath_old,
+                                 unique_ptr<WritableFile> *result,
+                                 const EnvOptions &options) {
+  // NVM_DBG(this, "fpath(" << fpath << "), fpath_old(" << fpath_old << ")");
 
   FPathInfo info(fpath);
   if (!info.nvm_managed()) {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->ReuseWritableFile(fpath, fpath_old, result, options);
   }
 
   return Status::IOError("ReuseWritableFile --> Not implemented.");
 }
 
-Status EnvNVM::NewWritableFile(
-  const std::string& fpath,
-  unique_ptr<WritableFile>* result,
-  const EnvOptions& options
-) {
-  NVM_DBG(this, "fpath(" << fpath << ")");
+Status EnvNVM::NewWritableFile(const std::string &fpath,
+                               unique_ptr<WritableFile> *result,
+                               const EnvOptions &options) {
+  // NVM_DBG(this, "fpath(" << fpath << ")");
 
   FPathInfo info(fpath);
 
   if (!info.nvm_managed()) {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->NewWritableFile(fpath, result, options);
   }
 
@@ -168,14 +162,14 @@ Status EnvNVM::NewWritableFile(
 
   NvmFile *file;
 
-  file = FindFileUnguarded(info);       // Delete existing file
+  file = FindFileUnguarded(info); // Delete existing file
   if (file) {
     DeleteFileUnguarded(info);
   }
 
-  try {                                 // Construct the new file
+  try { // Construct the new file
     file = new NvmFile(this, info, info.fpath() + kNvmMetaExt);
-  } catch (std::runtime_error& exc) {
+  } catch (std::runtime_error &exc) {
     NVM_DBG(this, "FAILED: creating NvmFile, e(" << exc.what() << ")");
   }
 
@@ -193,18 +187,18 @@ Status EnvNVM::NewWritableFile(
 //
 // Deletes a file without taking the fs_mutex_
 //
-Status EnvNVM::DeleteFileUnguarded(const FPathInfo& info) {
-  NVM_DBG(this, "info(" << info.txt() << ")");
+Status EnvNVM::DeleteFileUnguarded(const FPathInfo &info) {
+  // NVM_DBG(this, "info(" << info.txt() << ")");
 
   auto dit = fs_.find(info.dpath());
   if (dit == fs_.end()) {
-    NVM_DBG(this, "Dir NOT found");
+    // NVM_DBG(this, "Dir NOT found");
     return Status::NotFound();
   }
 
   for (auto it = dit->second.begin(); it != dit->second.end(); ++it) {
     if ((*it)->IsNamed(info.fname())) {
-      NVM_DBG(this, "File found -- erasing");
+      // NVM_DBG(this, "File found -- erasing");
 
       (*it)->Truncate(0);
       (*it)->Unref();
@@ -219,17 +213,17 @@ Status EnvNVM::DeleteFileUnguarded(const FPathInfo& info) {
     }
   }
 
-  NVM_DBG(this, "File NOT found");
+  // NVM_DBG(this, "File NOT found");
   return Status::NotFound();
 }
 
-Status EnvNVM::DeleteFile(const std::string& fpath) {
-  NVM_DBG(this, "fpath(" << fpath << ")");
+Status EnvNVM::DeleteFile(const std::string &fpath) {
+  // NVM_DBG(this, "fpath(" << fpath << ")");
 
   FPathInfo info(fpath);
 
   if (!info.nvm_managed()) {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->FileExists(fpath);
   }
 
@@ -238,13 +232,13 @@ Status EnvNVM::DeleteFile(const std::string& fpath) {
   return DeleteFileUnguarded(info);
 }
 
-Status EnvNVM::FileExists(const std::string& fpath) {
-  NVM_DBG(this, "fpath(" << fpath << ")");
+Status EnvNVM::FileExists(const std::string &fpath) {
+  // NVM_DBG(this, "fpath(" << fpath << ")");
 
   FPathInfo info(fpath);
 
   if (!info.nvm_managed()) {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->FileExists(fpath);
   }
 
@@ -256,59 +250,55 @@ Status EnvNVM::FileExists(const std::string& fpath) {
   return Status::NotFound();
 }
 
-Status EnvNVM::GetChildren(
-  const std::string& dpath,
-  std::vector<std::string>* result
-) {
-  NVM_DBG(this, "dpath(" << dpath << ")");
+Status EnvNVM::GetChildren(const std::string &dpath,
+                           std::vector<std::string> *result) {
+  // NVM_DBG(this, "dpath(" << dpath << ")");
 
-  posix_->GetChildren(dpath, result);   // Merging posix and nvm
+  posix_->GetChildren(dpath, result); // Merging posix and nvm
 
   WriteLock lock(&fs_mutex_);
   for (auto file : fs_[dpath]) {
-      result->push_back(file->GetFname());
+    result->push_back(file->GetFname());
   }
 
   for (auto fname : *result) {
-    NVM_DBG(this, "fname(" << fname << ")");
+    // NVM_DBG(this, "fname(" << fname << ")");
   }
 
   return Status::OK();
 }
 
-Status EnvNVM::GetChildrenFileAttributes(
-  const std::string& dpath,
-  std::vector<FileAttributes>* result
-) {
-  NVM_DBG(this, "dpath(" << dpath << ")");
+Status EnvNVM::GetChildrenFileAttributes(const std::string &dpath,
+                                         std::vector<FileAttributes> *result) {
+  // NVM_DBG(this, "dpath(" << dpath << ")");
 
   return Status::IOError("GetChildrenFileAttributes --> Not implemented");
 }
 
-NvmFile* EnvNVM::FindFileUnguarded(const FPathInfo& info) {
-  NVM_DBG(this, "info(" << info.txt() << ")");
-  NVM_DBG(this, "info.dpath(" << info.dpath() << ")");
+NvmFile *EnvNVM::FindFileUnguarded(const FPathInfo &info) {
+  // NVM_DBG(this, "info(" << info.txt() << ")");
+  // NVM_DBG(this, "info.dpath(" << info.dpath() << ")");
 
-  auto dit = fs_.find(info.dpath());    // Lookup in loaded files
+  auto dit = fs_.find(info.dpath()); // Lookup in loaded files
   if (dit != fs_.end()) {
     for (auto it = dit->second.begin(); it != dit->second.end(); ++it) {
       if ((*it)->IsNamed(info.fname())) {
-        NVM_DBG(this, "found");
+        // NVM_DBG(this, "found");
         return *it;
       }
     }
   }
-  NVM_DBG(this, "!found (not loaded)");
+  // NVM_DBG(this, "!found (not loaded)");
 
-  std::vector<std::string> listing;     // Lookup meta-file in default env
+  std::vector<std::string> listing; // Lookup meta-file in default env
   Status s = posix_->GetChildren(info.dpath(), &listing);
   if (!s.ok()) {
-    NVM_DBG(this, "!found (no files in default-env)");
+    // NVM_DBG(this, "!found (no files in default-env)");
     return NULL;
   }
 
-  for (auto entry : listing) {          // Find .meta files
-    NVM_DBG(this, "entry(" << entry << ")");
+  for (auto entry : listing) { // Find .meta files
+    // NVM_DBG(this, "entry(" << entry << ")");
 
     if (!FPathInfo::ends_with(entry, kNvmMetaExt))
       continue;
@@ -316,28 +306,27 @@ NvmFile* EnvNVM::FindFileUnguarded(const FPathInfo& info) {
       continue;
 
     try {
-      NvmFile *file = new NvmFile(      // Create NvmFile from meta-file
-        this, info, info.dpath() + std::string(1, FPathInfo::sep) + entry
-      );
+      NvmFile *file = new NvmFile( // Create NvmFile from meta-file
+          this, info, info.dpath() + std::string(1, FPathInfo::sep) + entry);
       fs_[info.dpath()].push_back(file);
 
       return file;
-    } catch (std::runtime_error& exc) {
+    } catch (std::runtime_error &exc) {
       NVM_DBG(this, "Failed creation from meta, e(" << exc.what() << ")");
       return NULL;
     }
   }
 
-  NVM_DBG(this, "!found (anywhere)");
+  // NVM_DBG(this, "!found (anywhere)");
   return NULL;
 }
 
-Status EnvNVM::GetFileSize(const std::string& fpath, uint64_t* fsize) {
-  NVM_DBG(this, "fpath(" << fpath << ")");
+Status EnvNVM::GetFileSize(const std::string &fpath, uint64_t *fsize) {
+  // NVM_DBG(this, "fpath(" << fpath << ")");
 
   FPathInfo info(fpath);
   if (!info.nvm_managed()) {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->GetFileSize(fpath, fsize);
   }
 
@@ -345,7 +334,7 @@ Status EnvNVM::GetFileSize(const std::string& fpath, uint64_t* fsize) {
 
   NvmFile *file = FindFileUnguarded(info);
   if (!file) {
-    return Status::IOError("File not not found");
+    // return Status::IOError("File not not found");
   }
 
   *fsize = file->GetFileSize();
@@ -353,15 +342,13 @@ Status EnvNVM::GetFileSize(const std::string& fpath, uint64_t* fsize) {
   return Status::OK();
 }
 
-Status EnvNVM::GetFileModificationTime(
-  const std::string& fpath,
-  uint64_t* file_mtime
-) {
-  NVM_DBG(this, "fpath(" << fpath << ")");
+Status EnvNVM::GetFileModificationTime(const std::string &fpath,
+                                       uint64_t *file_mtime) {
+  // NVM_DBG(this, "fpath(" << fpath << ")");
 
   FPathInfo info(fpath);
   if (!info.nvm_managed()) {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->GetFileModificationTime(fpath, file_mtime);
   }
 
@@ -370,23 +357,21 @@ Status EnvNVM::GetFileModificationTime(
   return Status::IOError("GetFileModificationTime --> Not implemented");
 }
 
-Status EnvNVM::RenameFile(
-  const std::string& fpath_src,
-  const std::string& fpath_tgt
-) {
-  NVM_DBG(this, "fpath_src(" << fpath_src << "), fpath_tgt(" << fpath_tgt << ")");
+Status EnvNVM::RenameFile(const std::string &fpath_src,
+                          const std::string &fpath_tgt) {
+  // NVM_DBG(this,
+  //         "fpath_src(" << fpath_src << "), fpath_tgt(" << fpath_tgt << ")");
 
   FPathInfo info_src(fpath_src);
   FPathInfo info_tgt(fpath_tgt);
 
   if (info_src.nvm_managed() ^ info_src.nvm_managed()) {
     return Status::IOError(
-      "Renaming a non-NVM file to a NVM file or the other way around."
-    );
+        "Renaming a non-NVM file to a NVM file or the other way around.");
   }
 
   if (!info_src.nvm_managed()) {
-    NVM_DBG(this, "delegating...");
+    // NVM_DBG(this, "delegating...");
     return posix_->RenameFile(fpath_src, fpath_tgt);
   }
 
@@ -411,4 +396,4 @@ Status EnvNVM::RenameFile(
   return Status::OK();
 }
 
-}       // namespace rocksdb
+} // namespace rocksdb

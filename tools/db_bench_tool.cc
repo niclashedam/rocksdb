@@ -77,18 +77,23 @@
 
 uint64_t put = 0;
 uint64_t get = 0;
-uint64_t update = 1000; // every second
-bool shouldStopCounter = false;
 
-void countPrinter()
-{
-  while(true){
-    break;
-    if(shouldStopCounter){ break; }
-    usleep(update * 1000);
-    printf("%" PRIu64 ",%" PRIu64 "\n", get, put);
-  }
-};
+  void countPrinter()
+  {
+    uint64_t deltaG = 0;
+    uint64_t deltaP = 0;
+    while(true){
+      deltaG = get;
+      deltaP = put;
+
+      break;
+
+      usleep(1000000);
+      time_t my_time = time(NULL); 
+      printf("\n%s", ctime(&my_time));
+      printf("%" PRIu64 " (+%" PRIu64 ") gets, %" PRIu64 " (+%" PRIu64 ") puts\n", get, get - deltaG, put, put - deltaP);
+    }
+  };
 
 using GFLAGS::ParseCommandLineFlags;
 using GFLAGS::RegisterFlagValidator;
@@ -2539,9 +2544,6 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       fprintf(stdout, "SIMULATOR CACHE STATISTICS:\n%s\n",
               std::dynamic_pointer_cast<SimCache>(cache_)->ToString().c_str());
     }
-
-    shouldStopCounter = true;
-    cp1.join();
   }
 
  private:
