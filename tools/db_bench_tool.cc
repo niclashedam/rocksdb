@@ -31,6 +31,7 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
+#include <time.h>
 
 #include "db/db_impl.h"
 #include "db/version_set.h"
@@ -73,6 +74,22 @@
 #ifdef OS_WIN
 #include <io.h>  // open/close
 #endif
+
+uint64_t put = 0;
+uint64_t get = 0;
+uint64_t update = 1000; // every second
+bool shouldStopCounter = false;
+bool printedTimestamp = false;
+
+void countPrinter()
+{
+  while(true){
+    if(shouldStopCounter){ break; }
+    if(!printedTimestamp){ time_t my_time = time(NULL); printf("freq: %" PRIu64 "; %s", update, ctime(&my_time)); }
+    usleep(update * 1000);
+    printf("%" PRIu64 ",%" PRIu64 "\n", get, put);
+  }
+};
 
 using GFLAGS::ParseCommandLineFlags;
 using GFLAGS::RegisterFlagValidator;
@@ -2215,6 +2232,8 @@ void VerifyDBFromDB(std::string& truth_db_name) {
   for (truth_iter->SeekToFirst(); truth_iter->Valid(); truth_iter->Next()) {
       std::string value;
       s = db_.db->Get(ro, truth_iter->key(), &value);
+      get++;
+
       assert(s.ok());
       // TODO(myabandeh): provide debugging hints
       assert(Slice(value) == truth_iter->value());
@@ -2231,6 +2250,9 @@ void VerifyDBFromDB(std::string& truth_db_name) {
 }
 
   void Run() {
+
+    std::thread cp1(countPrinter);
+
     if (!SanityCheck()) {
       exit(1);
     }
@@ -2518,6 +2540,9 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       fprintf(stdout, "SIMULATOR CACHE STATISTICS:\n%s\n",
               std::dynamic_pointer_cast<SimCache>(cache_)->ToString().c_str());
     }
+
+    shouldStopCounter = true;
+    cp1.join();
   }
 
  private:
@@ -3432,13 +3457,16 @@ void VerifyDBFromDB(std::string& truth_db_name) {
 #endif  //  ROCKSDB_LITE
         } else if (FLAGS_num_column_families <= 1) {
           batch.Put(key, gen.Generate(value_size_));
+	  put++;
         } else {
           // We use same rand_num as seed for key and column family so that we
           // can deterministically find the cfh corresponding to a particular
           // key while reading the key.
           batch.Put(db_with_cfh->GetCfh(rand_num), key,
                     gen.Generate(value_size_));
-        }
+	  put++;
+	}
+
         bytes += value_size_ + key_size_;
         ++num_written;
         if (writes_per_range_tombstone_ > 0 &&
@@ -3817,6 +3845,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     for (iter->SeekToFirst(); i < reads_ && iter->Valid(); iter->Next()) {
       bytes += iter->key().size() + iter->value().size();
       thread->stats.FinishedOps(nullptr, db, 1, kRead);
+      get++;
       ++i;
 
       if (thread->shared->read_rate_limiter.get() != nullptr &&
@@ -3883,7 +3912,8 @@ void VerifyDBFromDB(std::string& truth_db_name) {
         GenerateKeyFromInt(key_rand, FLAGS_num, &key);
         ++read;
         auto status = db->Get(options, key, &value);
-        if (status.ok()) {
+	get++;
+	if (status.ok()) {
           ++found;
         } else if (!status.IsNotFound()) {
           fprintf(stderr, "Get returned an error: %s\n",
@@ -3969,6 +3999,9 @@ void VerifyDBFromDB(std::string& truth_db_name) {
               options, db_with_cfh->db->DefaultColumnFamily(), key, &value);
         }
       }
+
+      get++;
+
       if (s.ok()) {
         found++;
         bytes += key.size() +
@@ -4021,6 +4054,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
         GenerateKeyFromInt(GetRandomKey(&thread->rand), FLAGS_num, &keys[i]);
       }
       std::vector<Status> statuses = db->MultiGet(options, keys, &values);
+
       assert(static_cast<int64_t>(statuses.size()) == entries_per_batch_);
 
       read += entries_per_batch_;
@@ -4268,6 +4302,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
 
       if (write_merge == kWrite) {
         s = db->Put(write_options_, key, gen.Generate(value_size_));
+        put++;
       } else {
         s = db->Merge(write_options_, key, gen.Generate(value_size_));
       }
@@ -4301,6 +4336,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     for (int i = 0; i < 3; i++) {
       keys[i] = key.ToString() + suffixes[i];
       batch.Put(keys[i], value);
+      put++;
     }
 
     s = db->Write(writeoptions, &batch);
@@ -4342,6 +4378,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       keys[i] = key.ToString() + suffixes[i];
       key_slices[i] = keys[i];
       s = db->Get(readoptionscopy, key_slices[i], value);
+      get++;
       if (!s.ok() && !s.IsNotFound()) {
         fprintf(stderr, "get error: %s\n", s.ToString().c_str());
         values[i] = "";
@@ -4470,7 +4507,8 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       if (get_weight > 0) {
         // do all the gets first
         Status s = db->Get(options, key, &value);
-        if (!s.ok() && !s.IsNotFound()) {
+	get++;
+	if (!s.ok() && !s.IsNotFound()) {
           fprintf(stderr, "get error: %s\n", s.ToString().c_str());
           // we continue after error rather than exiting so that we can
           // find more errors if any
@@ -4484,7 +4522,8 @@ void VerifyDBFromDB(std::string& truth_db_name) {
         // then do all the corresponding number of puts
         // for all the gets we have done earlier
         Status s = db->Put(write_options_, key, gen.Generate(value_size_));
-        if (!s.ok()) {
+        put++;
+	if (!s.ok()) {
           fprintf(stderr, "put error: %s\n", s.ToString().c_str());
           exit(1);
         }
@@ -4518,6 +4557,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       GenerateKeyFromInt(thread->rand.Next() % FLAGS_num, FLAGS_num, &key);
 
       auto status = db->Get(options, key, &value);
+      get++;
       if (status.ok()) {
         ++found;
         bytes += key.size() + value.size();
@@ -4528,6 +4568,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       }
 
       Status s = db->Put(write_options_, key, gen.Generate(value_size_));
+      put++;
       if (!s.ok()) {
         fprintf(stderr, "put error: %s\n", s.ToString().c_str());
         exit(1);
@@ -4561,6 +4602,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       GenerateKeyFromInt(thread->rand.Next() % FLAGS_num, FLAGS_num, &key);
 
       auto status = db->Get(options, key, &value);
+      get++;
       if (status.ok()) {
         ++found;
         bytes += key.size() + value.size();
@@ -4583,6 +4625,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
 
       // Write back to the database
       Status s = db->Put(write_options_, key, value);
+      put++;
       if (!s.ok()) {
         fprintf(stderr, "put error: %s\n", s.ToString().c_str());
         exit(1);
@@ -4672,6 +4715,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
         thread->stats.FinishedOps(nullptr, db, 1, kMerge);
       } else {
         Status s = db->Get(options, key, &value);
+	get++;
         if (value.length() > max_length)
           max_length = value.length();
 
@@ -4847,6 +4891,8 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     for (int64_t i = 0; i < FLAGS_numdistinct; i++) {
       GenerateKeyFromInt(i * max_counter, FLAGS_num, &key);
       s = db->Put(write_options_, key, gen.Generate(value_size_));
+      put++;
+
       if (!s.ok()) {
         fprintf(stderr, "Operation failed: %s\n", s.ToString().c_str());
         exit(1);
@@ -4872,6 +4918,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
         GenerateKeyFromInt(key_id * max_counter + counters[key_id], FLAGS_num,
                            &key);
         s = db->Put(write_options_, key, Slice());
+	put++;
       }
 
       if (!s.ok()) {
@@ -5014,6 +5061,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       Status s;
 
       s = db->Put(write_options_, key, gen.Generate(value_size_));
+      put++;
 
       if (!s.ok()) {
         fprintf(stderr, "put error: %s\n", s.ToString().c_str());

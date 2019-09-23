@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+KB=1024
+MB=$((1024 * KB))
+GB=$((1024 * MB))
+
+threads=( 8 )
+sizes=( $((1 * KB)) $((96 * KB)) $((3 * MB)) )
+db_size=$(( 800 * MB ))
+
+for (( i = 0; i < ${#threads[@]}; i++ ))
+do
+  for (( j = 0; j < ${#sizes[@]}; j++ ))
+  do
+    num=$(( ( db_size + sizes[j] - 1 ) / sizes[j] ))
+
+    mkdir ./stats_h_${threads[i]}t_${sizes[j]}kb
+    {
+    sudo rm -rf /opt/rocks/*
+    sudo -E RBENCH_NUM=$num RBENCH_VALUE_SIZE=${sizes[j]} RBENCH_THREADS=${threads[j]} RBENCH_MAPPING=1 RBENCH_HEIGHT=1 ./run.sh
+    sudo cp /opt/rocks/nvme0n1_nvm/LOG* ./stats_h_${threads[i]}t_${sizes[j]}kb
+    } | cat &> ./stats_h_${threads[i]}t_${sizes[j]}kb/output
+
+    mkdir ./stats_v_${threads[i]}t_${sizes[j]}kb
+    {
+    sudo rm -rf /opt/rocks/*
+    sudo -E RBENCH_NUM=$num RBENCH_VALUE_SIZE=${sizes[j]} RBENCH_THREADS=${threads[j]} RBENCH_MAPPING=2 RBENCH_HEIGHT=8 ./run.sh
+    sudo cp /opt/rocks/nvme0n1_nvm/LOG* ./stats_v_${threads[i]}t_${sizes[j]}kb
+    } | cat &> ./stats_v_${threads[i]}t_${sizes[j]}kb/output
+  done
+done
