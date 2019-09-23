@@ -39,7 +39,6 @@ NvmFile::NvmFile(
   NVM_DBG(this, "mpath_:" << mpath_);
 
   struct nvm_dev *dev = env_->store_->GetDev();
-  const struct nvm_geo *geo = nvm_dev_get_geo(dev);
 
   if (env_->posix_->FileExists(mpath_).ok()) {          // Read meta from file
     std::string content;
