@@ -79,13 +79,12 @@ uint64_t put = 0;
 uint64_t get = 0;
 uint64_t update = 1000; // every second
 bool shouldStopCounter = false;
-bool printedTimestamp = false;
 
 void countPrinter()
 {
   while(true){
+    break;
     if(shouldStopCounter){ break; }
-    if(!printedTimestamp){ time_t my_time = time(NULL); printf("freq: %" PRIu64 "; %s", update, ctime(&my_time)); }
     usleep(update * 1000);
     printf("%" PRIu64 ",%" PRIu64 "\n", get, put);
   }
