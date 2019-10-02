@@ -84,6 +84,10 @@ function rbench {
 		ARGS="$ARGS --stats_per_interval=$RBENCH_STATS_PER_INTERVAL"
 	fi
 
+        if [ -n "$RBENCH_STATS_INTERVAL_SECONDS" ]; then
+                ARGS="$ARGS --stats_interval_seconds=$RBENCH_STATS_INTERVAL_SECONDS"
+        fi
+
 	if [ -n "$RBENCH_DISABLE_SEEK_COMPACTION" ]; then
 		ARGS="$ARGS --disable_seek_compaction=$RBENCH_DISABLE_SEEK_COMPACTION"
 	fi
