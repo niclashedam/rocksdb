@@ -83,7 +83,6 @@ bool shouldStopCounter = false;
 void countPrinter()
 {
   while(true){
-    break;
     if(shouldStopCounter){ break; }
     usleep(update * 1000);
     printf("%" PRIu64 ",%" PRIu64 "\n", get, put);

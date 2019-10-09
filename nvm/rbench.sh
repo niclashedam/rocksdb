@@ -192,6 +192,20 @@ function rbench {
 		ARGS="$ARGS --writable_file_max_buffer_size=$RBENCH_WRITABLE_FILE_MAX_BUFFER_SIZE"
 	fi
 
+	##
+
+	if [ -n "$RBENCH_CACHE_INDEX_AND_FILTER_BLOCKS" ]; then
+                ARGS="$ARGS --cache_index_and_filter_blocks=$RBENCH_CACHE_INDEX_AND_FILTER_BLOCKS"
+        fi
+
+	if [ -n "$RBENCH_PIN_L0_FILTER_AND_INDEX_BLOCKS_IN_CACHE" ]; then
+                ARGS="$ARGS --pin_l0_filter_and_index_blocks_in_cache=$RBENCH_PIN_L0_FILTER_AND_INDEX_BLOCKS_IN_CACHE"
+        fi
+
+        if [ -n "$RBENCH_MEMTABLE_BLOOM_SIZE_RATIO" ]; then
+                ARGS="$ARGS --memtable_bloom_size_ratio=$RBENCH_MEMTABLE_BLOOM_SIZE_RATIO"
+        fi
+
 	RBENCH_CMD="$RBENCH_BIN $ARGS"
 
 	if [ -n "$RBENCH_CMD_PREFIX" ]; then
