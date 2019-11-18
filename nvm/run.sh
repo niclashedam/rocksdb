@@ -58,8 +58,8 @@ nvm)
 		rm $RBENCH_DB/*
 	fi
 ;;
-optane)
-        RBENCH_DB="/media/optane/rocks"
+posix)
+        RBENCH_DB="/mnt/posix/rocks"
 
         if [ "$RBENCH_USE_EXISTING_DB" == "0" ]; then
                 rm $RBENCH_DB/*
